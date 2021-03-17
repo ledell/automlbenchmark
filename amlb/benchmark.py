@@ -14,6 +14,8 @@ from importlib import import_module, invalidate_caches
 import logging
 import math
 import os
+import signal
+import threading
 
 from .job import Job, SimpleJobRunner, MultiThreadingJobRunner, ThreadPoolExecutorJobRunner, ProcessPoolExecutorJobRunner
 from .datasets import DataLoader, DataSourceType
@@ -21,7 +23,7 @@ from .data import DatasetType
 from .resources import get as rget, config as rconfig, output_dirs as routput_dirs
 from .results import ErrorResult, Scoreboard, TaskResult
 from .utils import Namespace as ns, OSMonitoring, as_list, datetime_iso, flatten, lazy_property, profile, repr_def, \
-    run_cmd, run_script, str2bool, str_sanitize, system_cores, system_memory_mb, system_volume_mb, touch
+    run_cmd, run_script, signal_handler, str2bool, str_sanitize, system_cores, system_memory_mb, system_volume_mb, touch
 
 
 log = logging.getLogger(__name__)
@@ -186,6 +188,16 @@ class Benchmark:
             self.job_runner = MultiThreadingJobRunner(jobs, self.parallel_jobs,
                                                       delay_secs=rconfig().delay_between_jobs,
                                                       done_async=True)
+
+        def on_interrupt():
+            log.warning("**** SESSION CANCELLED BY USER ****")
+            jobs.clear()
+            self.job_runner.stop()
+            self.cleanup()
+            # threading.Thread(target=self.job_runner.stop)
+            # threading.Thread(target=self.cleanup)
+
+        signal_handler(signal.SIGINT, on_interrupt)
 
         try:
             with OSMonitoring(name=jobs[0].name if len(jobs) == 1 else None,

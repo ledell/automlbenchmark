@@ -300,8 +300,6 @@ class MultiThreadingJobRunner(JobRunner):
         self._abort = False
 
     def _run(self):
-        signal_handler(signal.SIGINT, self.stop)
-        signal_handler(signal.SIGTERM, self.stop)
         q = queue.Queue(1)  # block one at a time to allow prioritization of rescheduled jobs
         available_workers = ThreadSafeCounter(self.parallel_jobs)
         has_work = threading.Condition()

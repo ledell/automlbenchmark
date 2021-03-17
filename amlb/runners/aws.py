@@ -37,7 +37,8 @@ from ..datautils import read_csv, write_csv
 from ..job import Job, JobError, State as JobState
 from ..resources import config as rconfig, get as rget
 from ..results import ErrorResult, NoResultError, Scoreboard, TaskResult
-from ..utils import Namespace as ns, countdown, datetime_iso, file_filter, flatten, list_all_files, normalize_path, retry_after, retry_policy, str_def, str_col, tail, touch
+from ..utils import Namespace as ns, countdown, datetime_iso, file_filter, flatten, list_all_files, normalize_path, \
+    retry_after, retry_policy, str_def, str_col, tail, touch
 from .docker import DockerBenchmark
 
 
