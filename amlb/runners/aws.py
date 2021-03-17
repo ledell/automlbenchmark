@@ -36,7 +36,7 @@ from ..benchmark import Benchmark, SetupMode
 from ..datautils import read_csv, write_csv
 from ..job import Job, JobError, State as JobState
 from ..resources import config as rconfig, get as rget
-from ..results import ErrorResult, Scoreboard, TaskResult
+from ..results import ErrorResult, NoResultError, Scoreboard, TaskResult
 from ..utils import Namespace as ns, countdown, datetime_iso, file_filter, flatten, list_all_files, normalize_path, retry_after, retry_policy, str_def, tail, touch
 from .docker import DockerBenchmark
 
@@ -359,12 +359,18 @@ class AWSBenchmark(Benchmark):
 
         def _on_state(_self, state):
             if state == JobState.completing:
-                terminate = self._download_results(_self.ext.instance_id)
+                terminate, failure = self._download_results(_self.ext.instance_id)
                 if not terminate and rconfig().aws.ec2.terminate_instances == 'success':
                     log.warning("[WARNING]: EC2 Instance %s won't be terminated as we couldn't download the results: "
                                 "please terminate it manually or restart it (after clearing its UserData) if you want to inspect the instance.",
                                 _self.ext.instance_id)
                 _self.ext.terminate = terminate
+                if failure:
+                    self._exec_send((lambda reason, **kwargs: self._save_failures(reason, **kwargs)),
+                                    failure,
+                                    tasks=_self.ext.tasks,
+                                    folds=_self.ext.folds,
+                                    seed=_self.ext.seed)
 
             elif state == JobState.rescheduled:
                 self._stop_instance(_self.ext.instance_id, terminate=True)
@@ -831,31 +837,46 @@ class AWSBenchmark(Benchmark):
                 else:
                     obj.download_fileobj(dest)
             except Exception as e:
-                log.error("Failed downloading `%s` from s3 bucket %s: %s", obj.key, self.bucket.name, str(e))
-                log.exception(e)
+                log.exception("Failed downloading `%s` from s3 bucket %s: %s", obj.key, self.bucket.name, str(e))
+                raise e
 
         success = self.instances[instance_id].success is True
+        error = None
+        objs = []
         try:
             instance_output_key = self._s3_output(instance_id, encode=True)
             objs = [o.Object() for o in self.bucket.objects.filter(Prefix=instance_output_key)]
             session_key = self._s3_session(encode=True)
             # result_key = self._s3_output(instance_id, Scoreboard.results_file, encode=True)
             for obj in objs:
+                is_result = os.path.basename(obj.key) == Scoreboard.results_file
                 rel_path = url_relpath(obj.key, start=session_key)
                 dest_path = os.path.join(self.output_dirs.session, rel_path)
-                download_file(obj, dest_path)
+                try:
+                    download_file(obj, dest_path)
+                except Exception as e:
+                    if is_result:
+                        error = e
                 # if obj.key == result_key:
-                if not success and os.path.basename(obj.key) == Scoreboard.results_file:
+                if not success and error is not None:
                     if rconfig().results.save:
                         self._exec_send(lambda path: self._append(Scoreboard.load_df(path)), dest_path)
                     success = True
         except Exception as e:
-            log.error("Failed downloading benchmark results from s3 bucket %s: %s", self.bucket.name, str(e))
-            log.exception(e)
+            log.exception("Failed downloading benchmark results from s3 bucket %s: %s", self.bucket.name, str(e))
+            error = e
+
+        if not success and error is None:
+            if len(objs) > 0:
+                error = NoResultError(f"No {Scoreboard.results_file} file found among the result artifacts: "
+                                      f"check the remote logs if available or the local logs to understand what happened on the instance.")
+            else:
+                error = NoResultError(f"No result artifacts, either the benchmark failed to start, or the instance got killed: "
+                                      f"check the local logs to understand what happened on the instance.")
 
         log.info("Instance `%s` success=%s", instance_id, success)
         self._update_instance(instance_id, success=success)
-        return success
+        return success, error
 
     def _create_instance_profile(self):
         """
