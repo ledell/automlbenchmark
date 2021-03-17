@@ -854,14 +854,14 @@ class AWSBenchmark(Benchmark):
                 dest_path = os.path.join(self.output_dirs.session, rel_path)
                 try:
                     download_file(obj, dest_path)
+                    # if obj.key == result_key:
+                    if is_result and not success:
+                        if rconfig().results.save:
+                            self._exec_send(lambda path: self._append(Scoreboard.load_df(path)), dest_path)
+                        success = True
                 except Exception as e:
                     if is_result:
                         error = e
-                # if obj.key == result_key:
-                if not success and error is not None:
-                    if rconfig().results.save:
-                        self._exec_send(lambda path: self._append(Scoreboard.load_df(path)), dest_path)
-                    success = True
         except Exception as e:
             log.exception("Failed downloading benchmark results from s3 bucket %s: %s", self.bucket.name, str(e))
             error = e
