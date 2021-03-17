@@ -142,7 +142,7 @@ class Job:
     def set_state(self, state: State):
         old_state = self.state
         self.state = state
-        log.info("Changing job `%s` from state %s to %s.", self.name, old_state, state)
+        log.debug("Changing job `%s` from state %s to %s.", self.name, old_state, state)
         try:
             self._on_state(state)
         except Exception as e:
@@ -232,7 +232,7 @@ class JobRunner:
     def set_state(self, state: State):
         old_state = self.state
         self.state = state
-        log.info("Changing job runner from state %s to %s.", old_state, state)
+        log.debug("Changing job runner from state %s to %s.", old_state, state)
         try:
             self._on_state(state)
         except Exception as e:

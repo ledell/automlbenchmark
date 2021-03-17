@@ -37,7 +37,7 @@ from ..datautils import read_csv, write_csv
 from ..job import Job, JobError, State as JobState
 from ..resources import config as rconfig, get as rget
 from ..results import ErrorResult, NoResultError, Scoreboard, TaskResult
-from ..utils import Namespace as ns, countdown, datetime_iso, file_filter, flatten, list_all_files, normalize_path, retry_after, retry_policy, str_def, tail, touch
+from ..utils import Namespace as ns, countdown, datetime_iso, file_filter, flatten, list_all_files, normalize_path, retry_after, retry_policy, str_def, str_col, tail, touch
 from .docker import DockerBenchmark
 
 
@@ -377,7 +377,10 @@ class AWSBenchmark(Benchmark):
 
             elif state == JobState.stopping:
                 self._stop_instance(_self.ext.instance_id, terminate=_self.ext.terminate)
-                self.jobs.remove(_self)
+                try:
+                    self.jobs.remove(_self)
+                except ValueError:
+                    pass
 
         job._setup = _setup.__get__(job)
         job._run = _run.__get__(job)
@@ -693,8 +696,8 @@ class AWSBenchmark(Benchmark):
             write_csv([(self._forward_params['framework_name'],
                         self._forward_params['benchmark_name'],
                         self._forward_params['constraint_name'],
-                        str_def(kwargs.get('tasks', None), if_empty=''),
-                        str_def(kwargs.get('folds', None), if_empty=''),
+                        str_col(kwargs.get('tasks', [])),
+                        str_col(kwargs.get('folds', [])),
                         str_def(kwargs.get('seed', None)),
                         str_def(reason, if_none="unknown"))],
                       columns=['framework', 'benchmark', 'constraint', 'task', 'fold', 'seed', 'error'],
