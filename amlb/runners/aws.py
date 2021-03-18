@@ -279,6 +279,7 @@ class AWSBenchmark(Benchmark):
 
         timeout_secs = (task_def.max_runtime_seconds if 'max_runtime_seconds' in task_def
                         else sum([task.max_runtime_seconds for task in self.benchmark_def]))
+        timeout_secs += rconfig().benchmarks.overhead_time_seconds
         timeout_secs += rconfig().aws.overhead_time_seconds
 
         seed = rget().seed(int(folds[0])) if len(folds) == 1 else rconfig().seed
@@ -573,7 +574,7 @@ class AWSBenchmark(Benchmark):
                 if ec2_config.spot.max_hourly_price:
                     spot_options.update(MaxPrice=str(ec2_config.spot.max_hourly_price))
                 if instance_type is InstanceType.Spot_Block:
-                    duration_min = (math.ceil(timeout_secs/3600) + 1) * 60  # duration_min most be a multiple of 60, also adding 1h extra to be safe
+                    duration_min = math.ceil(timeout_secs/3600) * 60  # duration_min most be a multiple of 60
                     if duration_min <= 360:  # blocks are only allowed until 6h
                         spot_options.update(BlockDurationMinutes=duration_min)
 
