@@ -701,7 +701,7 @@ class AWSBenchmark(Benchmark):
                         str_col(kwargs.get('folds', [])),
                         str_def(kwargs.get('seed', None)),
                         str_def(reason, if_none="unknown"))],
-                      columns=['framework', 'benchmark', 'constraint', 'task', 'fold', 'seed', 'error'],
+                      columns=['framework', 'benchmark', 'constraint', 'tasks', 'folds', 'seed', 'error'],
                       header=not os.path.exists(file),
                       path=file,
                       append=True)
