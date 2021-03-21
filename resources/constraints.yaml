@@ -46,4 +46,8 @@ test:
   cores: 16
   min_vol_size_mb: 131072
 
-
+10h16c:
+  folds: 10
+  max_runtime_seconds: 36000
+  cores: 16
+  min_vol_size_mb: 131072
